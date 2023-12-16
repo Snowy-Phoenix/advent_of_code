@@ -148,33 +148,25 @@ class Dish {
     }
 
     hashBoulders(): string {
-        let byteArray = new Uint8Array(Math.ceil(this.rows * this.cols / 8));
+        let boulders: number[] = [];
         for (let b of this.boulders.values()) {
-            let block = Math.floor(b / 8);
-            let offset = b % 8;
-            byteArray[block] = byteArray[block] | (1 << offset);
+            boulders.push(b);
         }
-        let str = ''
-        for (let b of byteArray) {
-            str += String.fromCharCode(b);
+        boulders.sort((a, b) => a - b);
+        let str = boulders[0].toString();
+        for (let i = 1; i < boulders.length; i++) {
+            str += ',';
+            str += boulders[i];
         }
         return str;
     }
 }
 
 function decodeLoad(str: string, rows: number, cols: number): number {
+    let boulders = str.split(',');
     let load = 0;
-    for (let block = 0; block < str.length; block++) {
-        let byte = str.charCodeAt(block);
-        let i = 0;
-        while (byte != 0) {
-            if ((byte & 1) == 1) {
-                let n = block*8 + i;
-                load += rows - Math.floor(n / cols);
-            }
-            byte >>= 1;
-            i += 1;
-        }
+    for (let b of boulders) {
+        load += rows - Math.floor(parseInt(b) / cols);
     }
     return load
 }
