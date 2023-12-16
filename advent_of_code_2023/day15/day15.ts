@@ -1,12 +1,11 @@
 import {readFileSync} from "fs";
 
-abstract class Hashable {
-
-    abstract isEqual(other: Hashable): boolean;
-    abstract hash(): number;
+interface Hashable {
+    isEqual(other: Hashable): boolean;
+    hash(): number;
 }
 
-class Step {
+class Step implements Hashable {
     rawString: string
     name: string
     instruction: string
@@ -16,7 +15,6 @@ class Step {
         this.rawString = str;
         this.parseStep(str);
     }
-
     
     parseStep(str: string) {
         let tokens = str.split(/-|=/);
@@ -44,6 +42,7 @@ class Step {
         }
         return currValue;
     }
+
     hashRaw(): number {
         let currValue = 0;
         for (let i = 0; i < this.rawString.length; i++) {
