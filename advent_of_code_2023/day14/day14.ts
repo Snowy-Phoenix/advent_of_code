@@ -146,6 +146,37 @@ class Dish {
         }
         return sum;
     }
+
+    hashBoulders(): string {
+        let byteArray = new Uint8Array(Math.ceil(this.rows * this.cols / 8));
+        for (let b of this.boulders.values()) {
+            let block = Math.floor(b / 8);
+            let offset = b % 8;
+            byteArray[block] = byteArray[block] | (1 << offset);
+        }
+        let str = ''
+        for (let b of byteArray) {
+            str += String.fromCharCode(b);
+        }
+        return str;
+    }
+}
+
+function decodeLoad(str: string, rows: number, cols: number): number {
+    let load = 0;
+    for (let block = 0; block < str.length; block++) {
+        let byte = str.charCodeAt(block);
+        let i = 0;
+        while (byte != 0) {
+            if ((byte & 1) == 1) {
+                let n = block*8 + i;
+                load += rows - Math.floor(n / cols);
+            }
+            byte >>= 1;
+            i += 1;
+        }
+    }
+    return load
 }
 
 function cycle(dish: Dish) {
@@ -166,7 +197,7 @@ function solve(lines: string[]): void {
     let visited = new Map<string, number>();
     let dishes: string[] = [];
 
-    let str = dish.getGridAsString()
+    let str = dish.hashBoulders()
     visited.set(str, 0);
     dishes.push(str);
 
@@ -174,7 +205,7 @@ function solve(lines: string[]): void {
     let totalCycles = 1000000000;
     for (let i = 1; i < totalCycles; i++) {
         cycle(dish);
-        let key = dish.getGridAsString();
+        let key = dish.hashBoulders();
         let val = visited.get(key)
         if (val !== undefined) {
             let cycleLength = i - val;
@@ -187,9 +218,7 @@ function solve(lines: string[]): void {
         dishes.push(key);
         finalDishStr = key;
     }
-    
-    let finalDish = new Dish(finalDishStr.split('\n'));
-    console.log("Part 2:", finalDish.computeLoad());
+    console.log("Part 2:", decodeLoad(finalDishStr, dish.rows, dish.cols));
 }
 
 function main() {
