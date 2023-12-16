@@ -250,6 +250,47 @@ class Grid {
     }
 }
 
+function propagateRight(grid: Grid): number {
+    let maxEnergised = 0;
+    let rightRay: Ray = {row: 0, col: 0, direction: Direction.right};
+    while (rightRay.row < grid.rows) {
+        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(rightRay));
+        grid.clearVisited();
+        rightRay.row++;
+    }
+    return maxEnergised;
+}
+function propagateDown(grid: Grid): number {
+    let maxEnergised = 0;
+    let downRay: Ray = {row: 0, col: 0, direction: Direction.down};
+    while (downRay.col < grid.cols) {
+        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(downRay));
+        grid.clearVisited();
+        downRay.col++;
+    }
+    return maxEnergised;
+}
+function propagateLeft(grid: Grid): number {
+    let maxEnergised = 0;
+    let leftRay: Ray = {row: 0, col: grid.cols - 1, direction: Direction.left};
+    while (leftRay.row < grid.rows) {
+        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(leftRay));
+        grid.clearVisited();
+        leftRay.row++;
+    }
+    return maxEnergised;
+}
+function propagateUp(grid: Grid): number {
+    let maxEnergised = 0;
+    let upRay: Ray = {row: grid.rows - 1, col: 0, direction: Direction.up};
+    while (upRay.col < grid.cols) {
+        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(upRay));
+        grid.clearVisited();
+        upRay.col++;
+    }
+    return maxEnergised;
+}
+
 function solve(lines: string[]): void {
     let grid = new Grid(lines);
     let initRay: Ray = {
@@ -257,37 +298,13 @@ function solve(lines: string[]): void {
         col: 0,
         direction: Direction.right
     }
-    let maxEnergised = grid.calculateEnergised(initRay);
-    console.log("Part 1:", maxEnergised);
+    console.log("Part 1:", grid.calculateEnergised(initRay));
     grid.clearVisited();
-    
-    let rightRay: Ray = {row: 1, col: 0, direction: Direction.right};
-    while (rightRay.row < grid.rows) {
-        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(rightRay));
-        grid.clearVisited();
-        rightRay.row++;
-    }
 
-    let downRay: Ray = {row: 0, col: 0, direction: Direction.down};
-    while (downRay.col < grid.cols) {
-        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(downRay));
-        grid.clearVisited();
-        downRay.col++;
-    }
-
-    let leftRay: Ray = {row: 0, col: grid.cols - 1, direction: Direction.down};
-    while (leftRay.row < grid.rows) {
-        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(leftRay));
-        grid.clearVisited();
-        leftRay.row++;
-    }
-
-    let upRay: Ray = {row: grid.rows - 1, col: 0, direction: Direction.down};
-    while (upRay.col < grid.cols) {
-        maxEnergised = Math.max(maxEnergised, grid.calculateEnergised(upRay));
-        grid.clearVisited();
-        upRay.col++;
-    }
+    let maxEnergised = Math.max(propagateRight(grid), 
+                                propagateDown(grid), 
+                                propagateLeft(grid),
+                                propagateUp(grid));
 
     console.log("Part 2:", maxEnergised);
 }
