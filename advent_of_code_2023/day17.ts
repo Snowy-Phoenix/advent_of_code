@@ -100,6 +100,19 @@ class SearchNode implements PQNode {
         return this.lastDirection + this.lastDirectionCount + 
                "(" + this.coordinates.row + "," + this.coordinates.col + ")"
     }
+    visitedHashes(): string[] {
+        // Optimisation: If we expand the tile at currStepCount < maxStepCount using dijkstra's, 
+        // then this must also be the optimal for currStepCount <= steps <= maxStepCount.
+        // This is because for all those steps, the tiles they could visit is a subset of
+        // the current step count.
+        
+        let hashes: string[] = [];
+        let coordString = "(" + this.coordinates.row + "," + this.coordinates.col + ")";
+        for (let i = this.lastDirectionCount; i <= 3; i++) {
+            hashes.push(this.lastDirection + i + coordString);
+        }
+        return hashes;
+    }
 }
 
 class PriorityQueue<T extends PQNode> {
@@ -243,8 +256,12 @@ function solve(lines: string[]): void {
         if (visited.has(node.hash())) {
             continue;
         }
-        visited.add(node.hash());
+        let hashes = node.visitedHashes()
+        for (let hash of hashes) {
+            visited.add(hash);
+        }
         searches++;
+
         let nextMoves = node.generateNextMoves((v) => grid.getNumber(v));
         for (let n of nextMoves) {
             if (visited.has(n.hash())) {
