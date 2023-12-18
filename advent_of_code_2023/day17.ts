@@ -43,16 +43,13 @@ class SearchNode implements PQNode {
 
     coordinates: Coordinates;
     lastDirection: Direction;
-    lastDirectionCount: number;
     heuristic: (v: Vector) => number;
     prev: SearchNode | undefined;
 
     constructor(distance: number, coords: Vector, lastDirection: Direction,
-                lastDirectionCount: number, 
                 heuristic?: (v: Vector) => number, prev?: SearchNode) {
         this.distance = distance;
         this.lastDirection = lastDirection;
-        this.lastDirectionCount = lastDirectionCount;
         this.prev = prev;
         if (heuristic === undefined) {
             this.heuristic = (v) => 0;
@@ -78,46 +75,30 @@ class SearchNode implements PQNode {
         let currVector = DIRECTION_VECTORS[this.lastDirection];
         
         for (let direction of DIRECTIONS) {
-            let nextDirectionCount = 1;
-            if (direction === this.lastDirection) {
-                if (this.lastDirectionCount == 3) {
-                    continue;
-                }
-                nextDirectionCount = this.lastDirectionCount + 1;
-            }
             let vector = DIRECTION_VECTORS[direction];
-            if (vector.row === -currVector.row && vector.col === -currVector.col) {
-                // Cannot go backwards.
+            if (Math.abs(currVector.row) == Math.abs(vector.row)
+                && Math.abs(currVector.col) == Math.abs(vector.col)) {
                 continue;
             }
+            let cost = 0;
+            let nextCoords = this.coordinates;
+            for (let i = 0; i < 3; i++) {
+                nextCoords = nextCoords.add(vector);
+                let nextCost = getCost(nextCoords);
+                if (nextCost === undefined) {
+                    break;
+                }
+                cost += nextCost;
+                nextMoves.push(new SearchNode(this.distance + cost, 
+                    nextCoords, direction, this.heuristic, this));
 
-            let nextCoords = this.coordinates.add(vector);
-            let cost = getCost(nextCoords);
-            if (cost === undefined) {
-                continue;
             }
-            nextMoves.push(new SearchNode(this.distance + cost, 
-                                          nextCoords, direction, 
-                                          nextDirectionCount, this.heuristic, this));
         }
         return nextMoves;
     }
     hash(): string {
-        return this.lastDirection + this.lastDirectionCount + 
+        return this.lastDirection + 
                "(" + this.coordinates.row + "," + this.coordinates.col + ")"
-    }
-    visitedHashes(): string[] {
-        // Optimisation: If we expand the tile at currStepCount < maxStepCount using dijkstra's, 
-        // then this must also be the optimal for currStepCount <= steps <= maxStepCount.
-        // This is because for all those steps, the tiles they could visit is a subset of
-        // the current step count.
-        
-        let hashes: string[] = [];
-        let coordString = "(" + this.coordinates.row + "," + this.coordinates.col + ")";
-        for (let i = this.lastDirectionCount; i <= 3; i++) {
-            hashes.push(this.lastDirection + i + coordString);
-        }
-        return hashes;
     }
 }
 
@@ -172,7 +153,6 @@ class PriorityQueue<T extends PQNode> {
         node.index = nodeIndex;
         this.length++;
         this.siftUp(nodeIndex);
-        
     }
     private minPriority(currPriority: number, i1: number, i2: number): number {
         let n1 = this.queue[i1];
@@ -273,9 +253,13 @@ function solve(lines: string[]): void {
     let inPq = new Map<string, SearchNode>();
     let visited = new Set<string>();
 
-    let start = new SearchNode(0, {row:0, col:0}, "RIGHT", 0, (v) => grid.distanceToEnd(v));
-    pq.push(start);
-    inPq.set(start.hash(), start);
+    // Need to consider whether we begin moving right or down.
+    let start1 = new SearchNode(0, {row:0, col:0}, "RIGHT", (v) => 0);
+    pq.push(start1);
+    inPq.set(start1.hash(), start1);
+    let start2 = new SearchNode(0, {row:0, col:0}, "DOWN", (v) => 0);
+    pq.push(start2);
+    inPq.set(start2.hash(), start2);
     
     let minHeatLoss = 0;
     let searches = 0;
@@ -297,10 +281,7 @@ function solve(lines: string[]): void {
         if (visited.has(currHash)) {
             continue;
         }
-        let hashes = node.visitedHashes()
-        for (let hash of hashes) {
-            visited.add(hash);
-        }
+        visited.add(currHash);
 
         let nextMoves = node.generateNextMoves((v) => grid.getNumber(v));
         for (let n of nextMoves) {
@@ -319,7 +300,6 @@ function solve(lines: string[]): void {
     }
     console.log("Part 1:", minHeatLoss);
     console.log("Searched:", searches);
-    
 }
 
 function main() {
