@@ -201,8 +201,8 @@ function getOverlapRange(r1: Range, r2: Range): number {
     }
     return 0;
 }
-function addNewRowVolume(prevCols: number[], nextCols: number[]): number {
-    // Adds the area given by the subtraction of previous area and next area.
+function calculateOverlapping(prevCols: number[], nextCols: number[]): number {
+    // Calculates the overlapping area between endpoints.
 
     let overlap = 0;
     for (let prevIndex = 1; prevIndex < prevCols.length; prevIndex += 2) {
@@ -212,43 +212,53 @@ function addNewRowVolume(prevCols: number[], nextCols: number[]): number {
             overlap += getOverlapRange(prevRange, nextRange);
         }
     }
-    let nextVolume = calculateLineVolume(nextCols);
-    return nextVolume - overlap
+    return overlap;
+}
+
+function getColsEndpoint(cols: number[], p: EndPointRow) {
+    let nextCols = cols.filter(() => true);
+    for (let i = 0; i < p.cols.length; i++) {
+        if (p.isBeginning[i]) {
+            nextCols.push(p.cols[i]);
+        } else {
+            nextCols.splice(nextCols.indexOf(p.cols[i]), 1);
+        }
+    }
+    nextCols.sort((a, b) => a - b);
+    return nextCols;
+}
+function calculateVolume(cols: number[], range: Range): number {
+    let length = calculateLineVolume(cols);
+    let width = range.max - range.min + 1;
+    return length * width;
 }
 
 function calculateInteriorVolume(endpoints: EndPointRow[]): number {
     endpoints.sort((a, b) => a.row - b.row);
     let totalVolume = 0;
-    let lineVolume = 0;
     let prevRow = 0;
     let cols: number[] = [];
 
+    let beginning = true;
     for (let p of endpoints) {
-        
-        // At an endpoint now. Add up the total area between this and the 
-        // previous endpoint. This also adds the area given by the current line.
-        totalVolume += lineVolume * (p.row - prevRow);
-
-        let nextCols = cols.filter(() => true);
-        for (let i = 0; i < p.cols.length; i++) {
-            if (p.isBeginning[i]) {
-                nextCols.push(p.cols[i]);
-            } else {
-                nextCols.splice(nextCols.indexOf(p.cols[i]), 1);
-            }
+        // A sweeping algorithm that iterates row by row and sums up the area inside the row.
+        let nextCols = getColsEndpoint(cols, p);
+        if (beginning) {
+            beginning = false;
+            prevRow = p.row
+            cols = nextCols;
+            continue;
         }
-        nextCols.sort((a, b) => a - b);
+        // At each endpoint, sum up the polygon area.
+        totalVolume += calculateVolume(cols, {min: prevRow, max: p.row});
 
-        // We are at a boundary. We have already added the previous row area.
-        // Add the new row area, while making sure we do not overlap.
-        totalVolume += addNewRowVolume(cols, nextCols);
-        lineVolume = calculateLineVolume(nextCols);
+        // Subtract the overlapping volume.
+        totalVolume -= calculateOverlapping(cols, nextCols);
         cols = nextCols;
         prevRow = p.row;
     }
     return totalVolume;
 }
-
 
 function solve(lines: string[]): void {
     let steps = parseSteps(lines);
