@@ -46,16 +46,14 @@ class SearchNode implements PQNode {
     minBlocks: number;
     maxBlocks: number;
     heuristic: (v: Vector) => number;
-    prev: SearchNode | undefined;
 
     constructor(distance: number, coords: Vector, lastDirection: Direction,
                 minBlocks: number, maxBlocks: number,
-                heuristic?: (v: Vector) => number, prev?: SearchNode) {
+                heuristic?: (v: Vector) => number) {
         this.distance = distance;
         this.lastDirection = lastDirection;
         this.minBlocks = minBlocks;
         this.maxBlocks = maxBlocks;
-        this.prev = prev;
         if (heuristic === undefined) {
             this.heuristic = (v) => 0;
         } else {
@@ -99,7 +97,7 @@ class SearchNode implements PQNode {
                 if (i >= this.minBlocks) {
                     nextMoves.push(new SearchNode(this.distance + cost, 
                         nextCoords, direction, this.minBlocks, this.maxBlocks,
-                        this.heuristic, this));
+                        this.heuristic));
                 }
                 
             }
@@ -281,10 +279,6 @@ function getMinHeatLoss(pq: PriorityQueue<SearchNode>, grid: Grid): readonly [nu
         if (grid.isEnd(node.coordinates)) {
             minHeatLoss = node.distance;
             break;
-        }
-        
-        if (visited.has(currHash)) {
-            continue;
         }
         visited.add(currHash);
 
