@@ -11,7 +11,7 @@ interface PQNode {
     index: number;
 
     getPriority(): number
-    updatePriority(priority: number): void
+    updatePriority(other: PQNode): void
 }
 
 interface Vector {
@@ -66,8 +66,8 @@ class SearchNode implements PQNode {
     getPriority(): number {
         return this.distance + this.heuristic(this.coordinates);
     }
-    updatePriority(distance: number): void {
-        this.distance = distance;
+    updatePriority(other: SearchNode): void {
+        this.distance = other.distance;
     }
 
     generateNextMoves(getCost: (v: Vector) => number | undefined): SearchNode[] {
@@ -183,19 +183,19 @@ class PriorityQueue<T extends PQNode> {
         this.siftDown(0);
         return output;
     }
-    update(node: T, priority: number): void {
-        let current = node.getPriority();
-        node.updatePriority(priority);
-        if (priority < current) {
-            this.siftUp(node.index);
+    update(currNode: T, nextNode: T): void {
+        let current = currNode.getPriority();
+        currNode.updatePriority(nextNode);
+        if (nextNode.getPriority() < current) {
+            this.siftUp(currNode.index);
         } else {
-            this.siftDown(node.index);
+            this.siftDown(currNode.index);
         }
     }
-    updateIfLower(node: T, priority: number): void {
-        if (node.getPriority() > priority) {
-            node.updatePriority(priority);
-            this.siftUp(node.index);
+    updateIfLower(currNode: T, nextNode: T): void {
+        if (currNode.getPriority() > nextNode.getPriority()) {
+            currNode.updatePriority(nextNode);
+            this.siftUp(currNode.index);
         }
     }
 
@@ -242,8 +242,8 @@ class Grid {
         return coords.row === (this.rows - 1) && coords.col === (this.cols - 1);
     }
     distanceToEnd(coords: Vector): number {
-        return Math.abs(coords.row - (this.rows - 1)) 
-               + Math.abs(coords.col - (this.cols - 1));
+        return Math.abs(coords.row - (this.rows - 1)) / 3 
+               + Math.abs(coords.col - (this.cols - 1)) / 3;
     }
 }
 
@@ -254,10 +254,10 @@ function solve(lines: string[]): void {
     let visited = new Set<string>();
 
     // Need to consider whether we begin moving right or down.
-    let start1 = new SearchNode(0, {row:0, col:0}, "RIGHT", (v) => 0);
+    let start1 = new SearchNode(0, {row:0, col:0}, "RIGHT", (v) => grid.distanceToEnd(v));
     pq.push(start1);
     inPq.set(start1.hash(), start1);
-    let start2 = new SearchNode(0, {row:0, col:0}, "DOWN", (v) => 0);
+    let start2 = new SearchNode(0, {row:0, col:0}, "DOWN", (v) => grid.distanceToEnd(v));
     pq.push(start2);
     inPq.set(start2.hash(), start2);
     
@@ -291,7 +291,8 @@ function solve(lines: string[]): void {
             }
             let pqNode = inPq.get(nextHash)
             if (pqNode !== undefined) {
-                pq.updateIfLower(pqNode, n.getPriority());
+                pq.updateIfLower(pqNode, n);
+                
             } else {
                 pq.push(n);
                 inPq.set(nextHash, n);
