@@ -8,8 +8,10 @@ const DIRECTION_VECTORS: {[D in Direction]: Vector;}
            "LEFT": {row: 0, col: -1}, "RIGHT": {row: 0, col: 1}}
 
 interface PQNode {
+    index: number;
 
     getPriority(): number
+    updatePriority(priority: number): void
 }
 
 interface Vector {
@@ -37,6 +39,7 @@ class Coordinates implements Vector {
 class SearchNode implements PQNode {
 
     distance: number;
+    index: number;
 
     coordinates: Coordinates;
     lastDirection: Direction;
@@ -65,6 +68,9 @@ class SearchNode implements PQNode {
 
     getPriority(): number {
         return this.distance + this.heuristic(this.coordinates);
+    }
+    updatePriority(distance: number): void {
+        this.distance = distance;
     }
 
     generateNextMoves(getCost: (v: Vector) => number | undefined): SearchNode[] {
@@ -128,11 +134,14 @@ class PriorityQueue<T extends PQNode> {
         let c = this.queue[i1];
         this.queue[i1] = this.queue[i2];
         this.queue[i2] = c;
+        this.queue[i1].index = i1;
+        this.queue[i2].index = i2;
     }
-    push(node: T): void {
-        this.queue.push(node);
-        let nodeIndex = this.length;
-        this.length++;
+    private siftUp(nodeIndex: number): void {
+        if (nodeIndex < 0 || nodeIndex >= this.length) {
+            return;
+        }
+        let node = this.queue[nodeIndex];
         while (nodeIndex > 0) {
             let nextIndex = Math.ceil(nodeIndex / 2) - 1;
             if (node.getPriority() < this.queue[nextIndex].getPriority()) {
@@ -142,6 +151,28 @@ class PriorityQueue<T extends PQNode> {
                 break;
             }
         }
+    }
+    private siftDown(nodeIndex: number): void {
+        if (nodeIndex < 0 || nodeIndex >= this.length) {
+            return;
+        }
+        let currPriority = this.queue[nodeIndex].getPriority();
+        while (true) {
+            let nextIndex = this.minPriority(currPriority, nodeIndex*2 + 1, nodeIndex*2 + 2);
+            if (nextIndex == -1) {
+                break;
+            }
+            this.swap(nodeIndex, nextIndex);
+            nodeIndex = nextIndex;
+        }
+    }
+    push(node: T): void {
+        this.queue.push(node);
+        let nodeIndex = this.length;
+        node.index = nodeIndex;
+        this.length++;
+        this.siftUp(nodeIndex);
+        
     }
     private minPriority(currPriority: number, i1: number, i2: number): number {
         let n1 = this.queue[i1];
@@ -169,22 +200,25 @@ class PriorityQueue<T extends PQNode> {
         this.swap(0, this.length - 1);
         let output = this.queue.pop();
         this.length--;
-        let nodeIndex = 0;
-        if (this.length === 0) {
-            return output;
-        } 
-        let currPriority = this.queue[nodeIndex].getPriority();
-        while (true) {
-            let nextIndex = this.minPriority(currPriority, nodeIndex*2 + 1, nodeIndex*2 + 2);
-            if (nextIndex == -1) {
-                break;
-            }
-            this.swap(nodeIndex, nextIndex);
-            nodeIndex = nextIndex;
-
-        }
+        this.siftDown(0);
         return output;
     }
+    update(node: T, priority: number): void {
+        let current = node.getPriority();
+        node.updatePriority(priority);
+        if (priority < current) {
+            this.siftUp(node.index);
+        } else {
+            this.siftDown(node.index);
+        }
+    }
+    updateIfLower(node: T, priority: number): void {
+        if (node.getPriority() > priority) {
+            node.updatePriority(priority);
+            this.siftUp(node.index);
+        }
+    }
+
     isEmpty(): boolean {
         return this.length == 0;
     }
@@ -236,38 +270,51 @@ class Grid {
 function solve(lines: string[]): void {
     let grid = new Grid(lines);
     let pq = new PriorityQueue<SearchNode>();
+    let inPq = new Map<string, SearchNode>();
     let visited = new Set<string>();
 
     let start = new SearchNode(0, {row:0, col:0}, "RIGHT", 0, (v) => grid.distanceToEnd(v));
     pq.push(start);
+    inPq.set(start.hash(), start);
     
     let minHeatLoss = 0;
     let searches = 0;
     while (true) {
         let node = pq.pop();
+        searches++;
+
         if (node === undefined) {
             break;
         }
+
+        let currHash = node.hash();
+        inPq.delete(currHash);
         if (grid.isEnd(node.coordinates)) {
             minHeatLoss = node.distance;
             break;
         }
-
-        if (visited.has(node.hash())) {
+        
+        if (visited.has(currHash)) {
             continue;
         }
         let hashes = node.visitedHashes()
         for (let hash of hashes) {
             visited.add(hash);
         }
-        searches++;
 
         let nextMoves = node.generateNextMoves((v) => grid.getNumber(v));
         for (let n of nextMoves) {
-            if (visited.has(n.hash())) {
+            let nextHash = n.hash();
+            if (visited.has(nextHash)) {
                 continue;
             }
-            pq.push(n);
+            let pqNode = inPq.get(nextHash)
+            if (pqNode !== undefined) {
+                pq.updateIfLower(pqNode, n.getPriority());
+            } else {
+                pq.push(n);
+                inPq.set(nextHash, n);
+            }
         }
     }
     console.log("Part 1:", minHeatLoss);
