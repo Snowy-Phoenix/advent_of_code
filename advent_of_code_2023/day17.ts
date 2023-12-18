@@ -43,13 +43,18 @@ class SearchNode implements PQNode {
 
     coordinates: Coordinates;
     lastDirection: Direction;
+    minBlocks: number;
+    maxBlocks: number;
     heuristic: (v: Vector) => number;
     prev: SearchNode | undefined;
 
     constructor(distance: number, coords: Vector, lastDirection: Direction,
+                minBlocks: number, maxBlocks: number,
                 heuristic?: (v: Vector) => number, prev?: SearchNode) {
         this.distance = distance;
         this.lastDirection = lastDirection;
+        this.minBlocks = minBlocks;
+        this.maxBlocks = maxBlocks;
         this.prev = prev;
         if (heuristic === undefined) {
             this.heuristic = (v) => 0;
@@ -82,16 +87,21 @@ class SearchNode implements PQNode {
             }
             let cost = 0;
             let nextCoords = this.coordinates;
-            for (let i = 0; i < 3; i++) {
+            let i = 0;
+            while (i < this.maxBlocks) {
                 nextCoords = nextCoords.add(vector);
                 let nextCost = getCost(nextCoords);
                 if (nextCost === undefined) {
                     break;
                 }
                 cost += nextCost;
-                nextMoves.push(new SearchNode(this.distance + cost, 
-                    nextCoords, direction, this.heuristic, this));
-
+                i++;
+                if (i >= this.minBlocks) {
+                    nextMoves.push(new SearchNode(this.distance + cost, 
+                        nextCoords, direction, this.minBlocks, this.maxBlocks,
+                        this.heuristic, this));
+                }
+                
             }
         }
         return nextMoves;
@@ -242,27 +252,22 @@ class Grid {
         return coords.row === (this.rows - 1) && coords.col === (this.cols - 1);
     }
     distanceToEnd(coords: Vector): number {
-        return Math.abs(coords.row - (this.rows - 1)) / 3 
-               + Math.abs(coords.col - (this.cols - 1)) / 3;
+        return Math.abs(coords.row - (this.rows - 1)) 
+               + Math.abs(coords.col - (this.cols - 1));
     }
 }
 
-function solve(lines: string[]): void {
-    let grid = new Grid(lines);
-    let pq = new PriorityQueue<SearchNode>();
-    let inPq = new Map<string, SearchNode>();
-    let visited = new Set<string>();
+function getMinHeatLoss(pq: PriorityQueue<SearchNode>, grid: Grid): readonly [number, number] {
 
-    // Need to consider whether we begin moving right or down.
-    let start1 = new SearchNode(0, {row:0, col:0}, "RIGHT", (v) => grid.distanceToEnd(v));
-    pq.push(start1);
-    inPq.set(start1.hash(), start1);
-    let start2 = new SearchNode(0, {row:0, col:0}, "DOWN", (v) => grid.distanceToEnd(v));
-    pq.push(start2);
-    inPq.set(start2.hash(), start2);
-    
+    let visited = new Set<string>();
     let minHeatLoss = 0;
     let searches = 0;
+
+    let inPq = new Map<string, SearchNode>();
+    for (let n of pq.queue) {
+        inPq.set(n.hash(), n);
+    }
+
     while (true) {
         let node = pq.pop();
         searches++;
@@ -299,10 +304,47 @@ function solve(lines: string[]): void {
             }
         }
     }
-    console.log("Part 1:", minHeatLoss);
-    console.log("Searched:", searches);
+    return [minHeatLoss, searches];
 }
 
+function getPart1Start(grid: Grid): PriorityQueue<SearchNode> {
+    let pq = new PriorityQueue<SearchNode>();
+    // Need to consider whether we begin moving right or down.
+    let start1 = new SearchNode(0, {row:0, col:0}, "RIGHT", 
+    1, 3, (v) => grid.distanceToEnd(v));
+    pq.push(start1);
+    let start2 = new SearchNode(0, {row:0, col:0}, "DOWN", 
+    1, 3, (v) => grid.distanceToEnd(v));
+    pq.push(start2);
+    return pq;
+}
+function getPart2Start(grid: Grid): PriorityQueue<SearchNode> {
+    let pq = new PriorityQueue<SearchNode>();
+    // Need to consider whether we begin moving right or down.
+    let start1 = new SearchNode(0, {row:0, col:0}, "RIGHT", 
+    4, 10, (v) => grid.distanceToEnd(v));
+    pq.push(start1);
+    let start2 = new SearchNode(0, {row:0, col:0}, "DOWN", 
+    4, 10, (v) => grid.distanceToEnd(v));
+    pq.push(start2);
+    return pq;
+}
+
+function solve(lines: string[]): void {
+    let grid = new Grid(lines);
+    let part1 = getPart1Start(grid);    
+    let [minHeatLoss1, searches1] = getMinHeatLoss(part1, grid);
+    console.log("Part 1:", minHeatLoss1);
+    // console.log("Searched:", searches1);
+    // console.log();
+
+    let part2 = getPart2Start(grid);  
+    let [minHeatLoss2, searches2] = getMinHeatLoss(part2, grid);
+    console.log("Part 2:", minHeatLoss2);
+    // console.log("Searched:", searches2);
+    // console.log("Total searches:", searches1 + searches2);
+
+}
 function main() {
     let lines: string[] = readFileSync("input17.txt", "utf-8")
                             .split(/\n/)
