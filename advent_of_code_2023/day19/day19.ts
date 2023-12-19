@@ -18,7 +18,7 @@ const MAXIMUM: Part = {
 interface Rule {
     accept: string;
 
-    eval(part: Part): boolean;
+    evaluate(part: Part): boolean;
     split(range: PartRange): [PartRange | null, PartRange | null];
 }
 
@@ -33,10 +33,10 @@ class GreaterThan implements Rule {
         this.accept = accept;
     }
     split(range: PartRange): [PartRange | null, PartRange | null] {
-        if (this.eval(range.minPart)) {
+        if (this.evaluate(range.minPart)) {
             // The whole range true.
             return [range, null];
-        } else if (this.eval(range.maxPart)) {
+        } else if (this.evaluate(range.maxPart)) {
             // Partially true.
             let trueRange = range.copy();
             let falseRange = range.copy();
@@ -49,7 +49,7 @@ class GreaterThan implements Rule {
         }
     }
 
-    eval(part: Part): boolean {
+    evaluate(part: Part): boolean {
         switch (this.param) {
             case "x":
                 return part.x > this.value;
@@ -73,7 +73,7 @@ class LessThan implements Rule {
         this.accept = accept;
     }
 
-    eval(part: Part): boolean {
+    evaluate(part: Part): boolean {
         switch (this.param) {
             case "x":
                 return part.x < this.value;
@@ -86,10 +86,10 @@ class LessThan implements Rule {
         }
     }
     split(range: PartRange): [PartRange | null, PartRange | null] {
-        if (this.eval(range.maxPart)) {
+        if (this.evaluate(range.maxPart)) {
             // The whole range true.
             return [range, null];
-        } else if (this.eval(range.minPart)) {
+        } else if (this.evaluate(range.minPart)) {
             // Partially true.
             let trueRange = range.copy();
             let falseRange = range.copy();
@@ -111,9 +111,9 @@ class Workflow {
         this.rules = rules;
         this.else = _else;
     }
-    eval(p: Part): string {
+    evaluate(p: Part): string {
         for (let r of this.rules) {
-            if (r.eval(p)) {
+            if (r.evaluate(p)) {
                 return r.accept;
             }
         }
@@ -289,7 +289,7 @@ function isAccepted(p: Part, workflowMap: Map<string, Workflow>): boolean {
     while (i < workflowMap.size) {
         let w = workflowMap.get(currentWorkflow);
         if (w) {
-            let output = w.eval(p);
+            let output = w.evaluate(p);
             if (output == 'R') {
                 return false;
             } else if (output == 'A') {
