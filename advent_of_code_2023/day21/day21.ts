@@ -324,9 +324,9 @@ function solve(lines: string[]): void {
     plot.parseMap(lines);
     
     let solver = new InfinitePlotSolver(plot);
-    // console.log("Part 1:", solver.mapNSteps(plot.start, 64).evens);
+    console.log("Part 1:", solver.mapNSteps(plot.start, 64).evens);
     // console.log("answer: ", plot.getNumReachablePlots(500));
-    console.log(solver.solve(26501365));
+    console.log("Part 2:", solver.solve(26501365));
     
 
 }
