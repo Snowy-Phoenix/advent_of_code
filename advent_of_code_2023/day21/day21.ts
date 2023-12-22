@@ -10,131 +10,6 @@ interface Coordinates {
     col: number;
 }
 
-class Plot {
-    map: readonly Tile[][];
-    start: Coordinates;
-    rows: number;
-    cols: number;
-
-    constructor() {
-        this.start = {row: 0, col: 0};
-        this.rows = 0;
-        this.cols = 0;
-        this.map = [];
-    }
-
-    parseMap(lines: string[]) {
-        let map: Tile[][] = [];
-        for (let r = 0; r < lines.length; r++) {
-            let line = lines[r];
-            let row: Tile[] = [];
-            for (let c = 0; c < line.length; c++) {
-                let char = line.charAt(c);
-                if (char === '#') {
-                    row.push('#');
-                } else if (char === '.') {
-                    row.push('.');
-                } else if (char === 'S') {
-                    this.start = {row: r, col: c};
-                    row.push('.');
-                } else {
-                    throw new Error("Parse Error: Unable to parse char " + char + " at line " + (r + 1));
-                }
-            }
-            map.push(row);
-            this.cols = Math.max(this.cols, row.length);
-        }
-        this.map = map;
-        this.rows = this.map.length;
-    }
-    inBounds(coords: Coordinates): boolean {
-        return (0 <= coords.row && coords.row < this.map.length)
-               && (0 <= coords.col && coords.col < this.map[0].length);
-    }
-    convertCoordsInBounds(coords: Coordinates): Coordinates {
-        let row = coords.row % this.rows;
-        if (row < 0) {
-            row = this.rows + row;
-        }
-        let col = coords.col % this.cols;
-        if (col < 0) {
-            col = this.cols + col;
-        }
-        return {row: row, col: col};
-    }
-    getTile(coords: Coordinates, inBounds=true): Tile | undefined {
-        if (inBounds) {
-            if (this.inBounds(coords)) {
-                return this.map[coords.row][coords.col];
-            }
-            return undefined;
-        }
-        let inBoundsCoords = this.convertCoordsInBounds(coords);
-        return this.map[inBoundsCoords.row][inBoundsCoords.col];
-    }
-    nextMoves(coords: Coordinates, inBounds=true): Coordinates[] {
-        let output: Coordinates[] = [];
-        for (let vector of DIRECTION_VECTORS) {
-            let next = {row: coords.row + vector.row, col: coords.col + vector.col};
-            let tile = this.getTile(next, inBounds);
-            if (tile === '.') {
-                output.push(next);
-            }
-        }
-        return output;
-    }
-    generateMoves(coords: Coordinates[], inBounds=true): Coordinates[] {
-        let hashmap = new Map<string, Coordinates>();
-        for (let c of coords) {
-            for (let next of this.nextMoves(c, inBounds)) {
-                hashmap.set(next.row.toString() + ',' + next.col.toString(), next);
-            }
-        }
-        let output: Coordinates[] = [];
-        for (let c of hashmap.values()) {
-            output.push(c);
-        }
-        return output;
-    }
-
-    getNumReachablePlots(steps: number, inBounds=true): number {
-        let on = 0;
-        let off = 0;
-        let prev = new Set<string>();
-        let newBlocks = new Set<string>();
-        let curr = [this.start]
-        for (let i = 0; i < steps; i++) {
-            let a = on;
-            on = off + curr.length;
-            off = a;
-            let next = this.generateMoves(curr, false);
-            let nextSet = new Set<string>();
-            let nextcurr: Coordinates[] = [];
-            for (let c of next) {
-                let newBlock = Math.floor(c.row / this.rows).toString() + ',' 
-                               + Math.floor(c.col / this.cols).toString()
-                if (!newBlocks.has(newBlock)) {
-                    let inBoundsCoords = this.convertCoordsInBounds(c)
-                    // console.log("New block: " + newBlock + " at i = " + (i + 1) + " with coords:", inBoundsCoords);
-                    newBlocks.add(newBlock);
-                }
-                let hash = c.row.toString() + ',' + c.col.toString();
-                if (prev.has(hash)) {
-                    continue;
-                } else {
-                    nextcurr.push(c);
-                }
-            }
-            for (let c of curr) {
-                nextSet.add(c.row.toString() + ',' + c.col.toString());
-            }
-            prev = nextSet;
-            curr = nextcurr;
-        }
-        return off + curr.length;
-    }
-}
-
 interface OddsEvens {
     odds: number;
     evens: number;
@@ -150,19 +25,61 @@ class InfinitePlotSolver {
     solutions: Map<string, OddsEvens>;
     counts: Map<string, number>;
 
+    bruteForcedValues: number[];
 
-    constructor(start: Plot) {
-        this.map = start.map;
-        this.beginning = start.start;
-        this.rows = start.rows;
-        this.cols = start.cols;
+    constructor(map: string[]) {
         this.solutions = new Map();
         this.counts = new Map();
+        this.rows = 0;
+        this.cols = 0;
+        this.beginning = {row:0, col:0};
+        this.map = [];
+        this.bruteForcedValues = []
+        this.parseMap(map);
+        
+    }
+    parseMap(lines: string[]): void {
+        
+        let map: Tile[][] = [];
+        for (let r = 0; r < lines.length; r++) {
+            let line = lines[r];
+            let row: Tile[] = [];
+            for (let c = 0; c < line.length; c++) {
+                let char = line.charAt(c);
+                if (char === '#') {
+                    row.push('#');
+                } else if (char === '.') {
+                    row.push('.');
+                } else if (char === 'S') {
+                    this.beginning = {row: r, col: c};
+                    row.push('.');
+                } else {
+                    throw new Error("Parse Error: Unable to parse char " + char + " at line " + (r + 1));
+                }
+            }
+            map.push(row);
+            this.cols = Math.max(this.cols, row.length);
+        }
+        this.map = map;
+        this.rows = this.map.length;
     }
 
     inBounds(coords: Coordinates): boolean {
         return (0 <= coords.row && coords.row < this.map.length)
                && (0 <= coords.col && coords.col < this.map[0].length);
+    }
+    getTile(coords: Coordinates): Tile {
+        // Converting negative modulo.
+        let row = coords.row % this.rows;
+        if (row < 0) {
+            row = this.rows + row;
+        }
+        let col = coords.col % this.cols;
+        if (col < 0) {
+            col = this.cols + col;
+        }
+        return this.map[row][col];
+        
     }
     mapNSteps(beginning: Coordinates, steps: number): OddsEvens {
         if (steps == 0) {
@@ -214,23 +131,78 @@ class InfinitePlotSolver {
         return 1 + 2 * (Math.ceil(remainingSteps / this.rows));
     }
 
+    solveBruteForce(steps: number): number {
+        if (steps == 0) {
+            this.bruteForcedValues.push(1);
+            return 1; // Beginning
+        }
+        let i = 0;
+        let odds = 0;
+        let evens = 0;
+        let isEven = true;
+        let visited = new Set<string>();
+        let queue: Coordinates[] = [this.beginning];
+        visited.add(this.beginning.row.toString() + ',' + this.beginning.col.toString());
+        while (queue.length > 0 && i <= steps) {
+            if (isEven) {
+                evens += queue.length;
+            } else {
+                odds += queue.length;
+            }
+            this.bruteForcedValues.push(i % 2 == 0 ? evens : odds);
+            let nextQueue: Coordinates[] = [];
+            for (let c of queue) {
+                for (let v of DIRECTION_VECTORS) {
+                    let next: Coordinates = {row: c.row + v.row, col: c.col + v.col};
+                    let hash = next.row.toString() + ',' + next.col.toString();
+                    let nextTile = this.getTile(next);
+                    if (visited.has(hash)) {
+                        continue;
+                    } else if (nextTile === '#') {
+                        continue;
+                    }
+                    nextQueue.push(next);
+                    visited.add(hash);
+                }
+            }
+            queue = nextQueue;
+            isEven = !isEven;
+            i++;
+        }
+        return steps % 2 == 0 ? evens : odds;
+    }
+
     solve(steps: number): number {
+        // Solution only works by observing these properties in our puzzle
+        // input:
+        // > The dimensions of the map is odd and a square
+        // > S starts in the middle of the map.
+        // > You can infinitely travel up, down, left, or right starting from the middle 
+        //   without hitting any rocks.
+        // > The outer ring has no rocks
+        // > It takes a maximum of 2*length to map out all the reachable plots from any location.
+        
+        // This means we can travel to any block with the least steps (unlike the puzzle input).
         let stepsEven = steps % 2 === 0;
 
-        if (steps <= this.beginning.row) {
-            let oddEvens = this.mapNSteps(this.beginning, steps);
-            return steps % 2 == 0 ? oddEvens.evens : oddEvens.odds;
+        // The middle block is partially filled. Just solve it using brute
+        // force in order to not deal with edge cases.
+        if (steps < this.beginning.row + this.rows) {
+            return this.solveBruteForce(steps);
         }
 
         let blockData = this.mapPlot(this.beginning);
         if (!stepsEven) {
-            let c = blockData.evens; // Must swap, as the block is calculated with beginning 
-            blockData.evens = blockData.odds;  // starting as even.
+            // So the steps we wish to calculate is an odd number.
+            // Since the start is consisidered even, we must swap the answers.
+            let c = blockData.evens;
+            blockData.evens = blockData.odds;
             blockData.odds = c;
         }
 
-        let reachable = 0;
+        let reachable = 0; // Our output
 
+        // Calculate the total number of blocks that are fully traversed.
         let evens = 0;
         let odds = 0;
         let isEven = true;
@@ -247,35 +219,42 @@ class InfinitePlotSolver {
                     odds += newBlocks;
                 }
                 iteration++;
-                isEven = !isEven;
-
+                // When we step over to an adjacent block, the parity changes.
+                isEven = !isEven; 
             }
         }
         reachable += evens * blockData.evens;
         reachable += odds * blockData.odds;
 
-        // console.log("Steps:", steps);
+/*
+             ....O....
+             ...O.O...
+             ,,O,,,O,, <- Calculating this part
+             ,O,,,,,O,
+*/
         let innerEdgeSteps = steps + this.beginning.row;
-        // console.log(innerEdgeSteps);
-        // console.log("Reachable ", reachable, blockData, 'odds:', odds, 'evens:', evens);
         let edges: Coordinates[] = [{row: this.beginning.row, col: 0},
                                     {row: this.beginning.row, col: this.cols - 1},
                                     {row: 0, col: this.beginning.col},
                                     {row: this.rows - 1, col: this.beginning.col}];
         for (let c of edges) {
             let result = this.mapNSteps(c, innerEdgeSteps);
-            // console.log("edge: ", c, result, "even?", isEven);
             if ((innerEdgeSteps % 2) == 0) {
                 reachable += result.evens;
             } else {
                 reachable += result.odds;
             }
         }
+/*
+               ....O....
+               ...O.O... <- Calculating this part, if it exists
+               ,,O,,,O,, 
+               ,O,,,,,O,
+*/
         let outerEdgeSteps = steps - this.beginning.row - 1;
         if (outerEdgeSteps >= 0) {
             for (let c of edges) {
                 let result = this.mapNSteps(c, outerEdgeSteps);
-                // console.log("outeredge: ", c, result, "even?", isEven);
                 if ((outerEdgeSteps % 2) == 0) {
                     reachable += result.evens;
                 } else {
@@ -284,6 +263,16 @@ class InfinitePlotSolver {
             }
         }
 
+/*
+        ...........,,,,,O,,,,,
+        ...........,,,,O,,,,,,
+        ...........,,,O,,,,,,,
+        ,,,,,,,,,,,..O........
+        ,,,,,,,,,,,.O.........
+        ,,,,,,,,,,,O.......... <- Calculating this part, the corners that
+        ,,,,,,,,,,O...........    contain the centre.
+        ,,,,,,,,,O,........... 
+*/
         let cornerStepsBig = steps + this.beginning.row + this.beginning.col;
         let corners: Coordinates[] = [{row: 0, col: 0},
                                       {row: 0, col: this.cols - 1},
@@ -292,7 +281,6 @@ class InfinitePlotSolver {
         if (iteration > 0) {
             for (let c of corners) {
                 let result = this.mapNSteps(c, cornerStepsBig);
-                // console.log("bigcorner: ", c, result, "even?", isEven);
                 if ((cornerStepsBig % 2) == 0) {
                     reachable += result.evens * (iteration - 1);
                 } else {
@@ -300,13 +288,23 @@ class InfinitePlotSolver {
                 }
             }
         }
-        // console.log("Reachable: ", reachable);
+
+/*
+        ...........,,,,,O,,,,,
+        ...........,,,,O,,,,,, <- Calculating this part, the corners that
+        ...........,,,O,,,,,,,    do not contain the centre.
+        ,,,,,,,,,,,..O........
+        ,,,,,,,,,,,.O.........
+        ,,,,,,,,,,,O.......... 
+        ,,,,,,,,,,O...........    
+        ,,,,,,,,,O,........... 
+            ^                    
+        This is also the same corner
+*/
         let cornerStepsSmall = steps - 1;
-        // console.log("Small step:", cornerStepsSmall, "iteration: ", iteration);
         if (iteration > 0) {
             for (let c of corners) {
                 let result = this.mapNSteps(c, cornerStepsSmall);
-                // console.log("smallcorner: ", c, result, "even?", isEven);
                 if ((cornerStepsSmall % 2) == 0) {
                     reachable += result.evens * (iteration);
                 } else {
@@ -319,16 +317,35 @@ class InfinitePlotSolver {
     }
 }
 
-function solve(lines: string[]): void {
-    let plot = new Plot();
-    plot.parseMap(lines);
-    
-    let solver = new InfinitePlotSolver(plot);
-    console.log("Part 1:", solver.mapNSteps(plot.start, 64).evens);
-    // console.log("answer: ", plot.getNumReachablePlots(500));
-    console.log("Part 2:", solver.solve(26501365));
-    
+function testBruteForce() {
+    let lines: string[] = readFileSync("test.txt", "utf-8")
+                            .split(/\n/)
+                            .map(x => x.trim())
+                            .filter((x => x.length != 0));
+    let solver = new InfinitePlotSolver(lines);
+    let testSteps = [6, 10, 50, 100, 500];
+    let expected = [16, 50, 1594, 6536, 167004];
+    for (let i = 0; i < testSteps.length; i++) {
+        let got = solver.solveBruteForce(testSteps[i])
+        console.assert(got === expected[i], "Expected %d. Got %d", expected[i], got);
+    }
+}
 
+function testSolver(solver: InfinitePlotSolver) {
+    solver.solveBruteForce(500);
+    for (let i = 200; i <= 500; i++) {
+        let got = solver.solve(i);
+        let expected = solver.bruteForcedValues[i];
+        console.assert(got === expected, "Iteration %d: Expected %d. Got %d", i, expected, got);
+    }
+}
+
+function solve(lines: string[]): void {
+    let solver = new InfinitePlotSolver(lines);
+    // testBruteForce();
+    // testSolver(solver);
+    console.log("Part 1:", solver.solve(64));
+    console.log("Part 2:", solver.solve(26501365));
 }
 
 function main() {
