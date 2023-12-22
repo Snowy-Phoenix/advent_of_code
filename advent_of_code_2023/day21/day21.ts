@@ -132,6 +132,9 @@ class InfinitePlotSolver {
     }
 
     solveBruteForce(steps: number): number {
+        if (steps < this.bruteForcedValues.length) {
+            return this.bruteForcedValues[steps];
+        }
         if (steps == 0) {
             this.bruteForcedValues.push(1);
             return 1; // Beginning
@@ -149,7 +152,9 @@ class InfinitePlotSolver {
             } else {
                 odds += queue.length;
             }
-            this.bruteForcedValues.push(i % 2 == 0 ? evens : odds);
+            if (i == this.bruteForcedValues.length){
+                this.bruteForcedValues.push(i % 2 == 0 ? evens : odds);
+            }
             let nextQueue: Coordinates[] = [];
             for (let c of queue) {
                 for (let v of DIRECTION_VECTORS) {
@@ -333,7 +338,7 @@ function testBruteForce() {
 
 function testSolver(solver: InfinitePlotSolver) {
     solver.solveBruteForce(500);
-    for (let i = 200; i <= 500; i++) {
+    for (let i = 0; i <= 500; i++) {
         let got = solver.solve(i);
         let expected = solver.bruteForcedValues[i];
         console.assert(got === expected, "Iteration %d: Expected %d. Got %d", i, expected, got);
