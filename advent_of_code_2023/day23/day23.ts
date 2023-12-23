@@ -240,10 +240,9 @@ class Maze {
 
 function solve(lines: string[]): void {
     let maze = new Maze(lines);
-    // maze.buildGraph(true);
-    // console.log("Part 1:", maze.findLongestPath());
+    maze.buildGraph(true);
+    console.log("Part 1:", maze.findLongestPath());
     maze.buildGraph(false);
-    // console.log(maze.mazeGraph.nodes);
     console.log("Part 2:", maze.findLongestPath());
 }
 
