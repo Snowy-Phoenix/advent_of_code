@@ -21,6 +21,7 @@ interface Edge {
 interface Node {
     edges: Edge[];
     coords: Coordinates;
+    visited: boolean;
 }
 function hashCoords(coords: Coordinates): string {
     return coords.row.toString() + ',' + coords.col.toString();
@@ -38,7 +39,7 @@ class Graph {
         if (this.nodes.has(hash)) {
             return false;
         }
-        let newNode: Node = {edges: [], coords: coords};
+        let newNode: Node = {edges: [], coords: coords, visited: false};
         this.nodes.set(hash, newNode);
         return true;
     }
@@ -73,22 +74,18 @@ class Graph {
         }
         return node;
     }
-    findLongestPath(start: Node, end: Node, visited?: Set<string>): number {
-        if (visited === undefined) {
-            visited = new Set();
-        }
+    findLongestPath(start: Node, end: Node): number {
         let maximum = -1;
         for (let edge of start.edges) {
             let next = edge.to;
-            if (visited.has(hashCoords(next.coords))) {
+            if (next.visited) {
                 continue;
             } else if (next.coords.row === end.coords.row && next.coords.col === end.coords.col) {
                 maximum = Math.max(edge.cost, maximum);
             } else {
-                let hash = hashCoords(start.coords);
-                visited.add(hash);
-                let nextMaximum = this.findLongestPath(next, end, visited);
-                visited.delete(hash);
+                start.visited = true;
+                let nextMaximum = this.findLongestPath(next, end);
+                start.visited = false;
                 if (nextMaximum < 0) {
                     continue;
                 }
@@ -165,41 +162,40 @@ class Maze {
             }
             let distance = 1;
             let visited = new Set<string>();
-            let queue = [nextStart];
+            let curr = nextStart;
             visited.add(hashCoords(start));
             visited.add(hashCoords(nextStart));
-            while (queue.length > 0) {
+            while (true) {
                 let nextQueue: Coordinates[] = [];
-                for (let curr of queue) {
-                    if (this.isEnd(curr)) {
-                        intersections.push([curr, distance]);
-                        continue;
-                    }
-                    for (let direction of DIRECTIONS) {
-                        let nextCoords = this.move(curr, direction, obeyArrows);
-                        if (nextCoords === undefined) {
-                            continue;
-                        }
-                        let hash = hashCoords(nextCoords);
-                        if (visited.has(hash)) {
-                            continue;
-                        } else {
-                            nextQueue.push(nextCoords);
-                            visited.add(hash);
-                        }
-                        
-                    }
-                }
-                if (nextQueue.length > 1) {
-                    intersections.push([queue[0], distance]);
+                if (this.isEnd(curr)) {
+                    intersections.push([curr, distance]);
                     break;
                 }
-                queue = nextQueue;
+                for (let direction of DIRECTIONS) {
+                    let nextCoords = this.move(curr, direction, obeyArrows);
+                    if (nextCoords === undefined) {
+                        continue;
+                    }
+                    let hash = hashCoords(nextCoords);
+                    if (visited.has(hash)) {
+                        continue;
+                    } else {
+                        nextQueue.push(nextCoords);
+                        visited.add(hash);
+                    }
+                    
+                }
+                if (nextQueue.length > 1) {
+                    intersections.push([curr, distance]);
+                    break;
+                } else if (nextQueue.length == 0) {
+                    break;
+                }
+                curr = nextQueue[0];
                 distance++;
             }
         }
         return intersections;
-
     }
 
     buildGraph(obeyArrows: boolean): void {
@@ -231,7 +227,6 @@ class Maze {
     }
 
     findLongestPath(): number {
-
         let start = this.mazeGraph.getNode(this.start);
         let end = this.mazeGraph.getNode(this.end);
         return this.mazeGraph.findLongestPath(start, end);
